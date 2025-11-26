@@ -24,19 +24,20 @@ client = AsyncOpenAI(
 @app.api_route("/api/givescore", methods=["GET", "POST"])
 async def give_score():
     try:
-        # 1. Tentukan jumlah poin feedback (5 - 7 poin)
-        feedback_num = random.randint(5, 7)
-
-        # 2. Generate Array Score (70-95)
-        scores_array = [random.randint(70, 95) for _ in range(feedback_num)]
+        # 1. SCORE LOGIC (FIXED 15 ITEMS) -- UPDATED
+        # Score sekarang tidak peduli berapa jumlah feedback, dia selalu array sepanjang 15.
+        scores_array = [random.randint(70, 95) for _ in range(15)]
         
-        # 3. Generate Array Sub Num (3-15) - NEW ATTRIBUTE
+        # Hitung rata-rata dari 15 nilai tersebut
+        average_score = round(sum(scores_array) / 15, 1)
+
+        # 2. FEEDBACK LOGIC (Random 5-7 items)
+        feedback_num = random.randint(5, 7)
+        
+        # Sub Num mengikuti jumlah feedback (sesuai request sebelumnya)
         sub_num_array = [random.randint(3, 15) for _ in range(feedback_num)]
 
-        # 4. Hitung Average Score
-        average_score = round(sum(scores_array) / feedback_num, 1)
-
-        # 5. Prompt Engineering (Tari Lenggang Nyai)
+        # 3. Prompt Engineering (Tari Lenggang Nyai)
         prompt_text = (
             f"Berikan {feedback_num} poin evaluasi teknis singkat (1-2 kalimat per poin) "
             "untuk penari Tari Lenggang Nyai (Betawi) berdasarkan deteksi pose tubuh (tanpa wajah). "
@@ -57,7 +58,7 @@ async def give_score():
             temperature=0.7,
         )
 
-        # 6. Parsing hasil OpenAI
+        # 4. Parsing hasil OpenAI
         raw_content = response.choices[0].message.content.strip()
         
         feedback_list = []
@@ -70,27 +71,22 @@ async def give_score():
                     clean_line = clean_line[2:]
                 feedback_list.append(clean_line)
 
-        # 7. Sinkronisasi Data (PENTING)
-        # Kita ambil feedback sesuai feedback_num
+        # 5. Sinkronisasi Data Feedback & Sub Num
         selected_feedback = feedback_list[:feedback_num]
         
-        # Jika ternyata AI generate feedback lebih sedikit dari rencana awal (jarang terjadi),
-        # potong array score dan sub_num biar panjangnya sama semua (biar frontend ga error).
-        actual_length = len(selected_feedback)
-        
-        if actual_length < feedback_num:
-            scores_array = scores_array[:actual_length]
-            sub_num_array = sub_num_array[:actual_length] # Potong juga sub_num
-            feedback_num = actual_length
-            if actual_length > 0:
-                average_score = round(sum(scores_array) / actual_length, 1)
+        # Jaga-jaga jika AI generate feedback kurang dari request
+        actual_len = len(selected_feedback)
+        if actual_len < feedback_num:
+            feedback_num = actual_len
+            sub_num_array = sub_num_array[:actual_len] 
+            # Note: Score tidak kita potong karena dia fixed 15
 
         return {
             "feedback_num": feedback_num,
-            "feedback": selected_feedback,  # List[String]
-            "score": scores_array,          # List[Int]
-            "average_score": average_score, # Float
-            "sub_num": sub_num_array        # List[Int] (NEW)
+            "feedback": selected_feedback,  # Array strings (sesuai feedback_num)
+            "sub_num": sub_num_array,       # Array int (sesuai feedback_num)
+            "score": scores_array,          # Array int (FIXED 15 ITEMS)
+            "average_score": average_score  # Float (dari 15 items)
         }
 
     except Exception as e:
@@ -103,18 +99,22 @@ async def give_score():
             "Koordinasi kaki terlambat dengan tempo musik.",
             "Bahu sering terangkat, harusnya rileks."
         ]
-        fallback_scores = [random.randint(75, 85) for _ in range(5)]
-        fallback_sub_num = [random.randint(3, 15) for _ in range(5)] # Fallback sub_num
-        fallback_avg = round(sum(fallback_scores) / 5, 1)
+        
+        # Fallback Score tetap 15
+        fallback_scores = [random.randint(75, 85) for _ in range(15)]
+        fallback_avg = round(sum(fallback_scores) / 15, 1)
+        
+        # Fallback Sub Num (misal 5 karena feedbacknya 5)
+        fallback_sub_num = [random.randint(3, 15) for _ in range(5)]
 
         return {
             "feedback_num": 5,
             "feedback": fallback_feedback,
+            "sub_num": fallback_sub_num,
             "score": fallback_scores,
-            "average_score": fallback_avg,
-            "sub_num": fallback_sub_num
+            "average_score": fallback_avg
         }
 
 @app.get("/")
 def read_root():
-    return {"status": "API Updated: Added sub_num attribute."}
+    return {"status": "API Updated: Score fixed to 15 items."}
